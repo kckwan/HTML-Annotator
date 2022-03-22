@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+<head>
+	<title> HTML Annotator</title>
+	<meta charset="UTF-8">
+	<meta name="author" content="KC Kwan">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+	.dot{
+		width:30px;
+		height:30px;
+		border-radius:50%;
+		display:inline-block;
+		margin-left:5px;
+		margin-right:5px;
+		border:0px solid #000000;
+		vertical-align:middle;
+	}
+</style>
+</head>
+
+<body onload="init()">
+	<h1> HTML Annotator </h1>
+	<center>
+		<div style="width: 100%;height:50px; display: table;margin-bottom:50px;">
+			<div style="display: table-row">
+				<div style="width: 10%; display: table-cell;border:1px solid #000000;"> 
+					<div id="data_name">Unknown</div>
+				</div>
+				<div style="width: 60%; display: table-cell;border:1px solid #000000;"> 
+					<div style="vertical-align:middle">
+						<span class="dot" id="color0" onclick="setColor(0)" style="background-color:#000000;border:5px solid #000000;"></span>
+						<span class="dot" id="color1" onclick="setColor(1)" style="background-color:#55EE55"></span>
+						<span class="dot" id="color2" onclick="setColor(2)" style="background-color:#5555EE"></span>
+						<span class="dot" id="color3" onclick="setColor(3)" style="background-color:#EEEE55"></span>
+						<span class="dot" id="color4" onclick="setColor(4)" style="background-color:#55EEEE"></span>
+						<span class="dot" id="color5" onclick="setColor(5)" style="background-color:#FF9999"></span>
+					</div>
+				</div>
+				<div style="width: 30%;display: table-cell;border:1px solid #000000;">
+					<button onclick="reset()" style="margin-right:50pt">Reset</button>
+					<button onclick="save()"> Save</button>
+				</div>
+					
+			</div>
+		</div>
+		<div id="space">
+			<canvas id="myCanvas" style="border:1px solid #000000;"></canvas>
+			<canvas id="myCanvasOffline" style="border:1px solid #000000;display:none"></canvas>
+		</div>
+	<center>
+</body>
+<script>
+	const DATA_NAME = [ "user study1.png" , "user study2.png", "user study weather.png" ]
+	const DRAWING_TIME_INTERVAL = 40;
+	const STROKEWIDTH = 5;
+	var canvas,canvasOff;
+	var color = "0";
+	var question_Id;
+	var img;
+	var stroke;
+	var last_Pos;
+	var last_Call
+	var pen_downed = false;
+
+	function init(){
+		canvas = document.getElementById('myCanvas');
+		canvasOff = document.getElementById('myCanvasOffline');
+		canvas.getContext('2d').strokeStyle = document.getElementById('color0').style.backgroundColor;
+		canvasOff.getContext('2d').strokeStyle = document.getElementById('color0').style.backgroundColor;
+		
+		getDataName();
+		setCanvas();
+	}
+
+	function setColor(c){
+		var oldColor = document.getElementById('color'+color);
+		var newColor = document.getElementById('color'+c);
+		oldColor.style.borderWidth = "0px";
+		newColor.style.borderWidth = "5px";
+		color = c;
+	}
+
+	function reset(){
+		//alert("reset");
+		stroke = [];
+		canvas.getContext('2d').clearRect( 0, 0,canvas.width, canvas.height);
+		canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+		canvasOff.getContext('2d').clearRect( 0, 0,canvas.width, canvas.height);
+		
+	}
+
+	function save(){
+		var link = document.createElement('a');
+		link.download = DATA_NAME[question_Id];
+		link.href = document.getElementById('myCanvasOffline').toDataURL()
+		link.click();
+	}
+
+	function getMousePos(e){
+		
+		var rect = canvas.getBoundingClientRect(),
+			scaleX = canvas.width/rect.width,
+			scaleY = canvas.height/rect.height;
+		if(e.type == 'touchmove'){
+			var evt = (typeof e.originalEvent === 'undefined') ? e : e.originalEvent;
+			var t = evt.touches[0] || evt.changedTouches[0];
+			return [ (t.pageX - rect.left) * scaleX, (t.pageY - rect.top) * scaleY]; 
+		}
+		
+		return [ (e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY]; 
+		
+	}
+
+	function drawMove(e){
+		//e.preventDefault();
+		//e.stopPropagation();
+		
+		if(pen_downed){
+			
+			var now = Date.now();
+			if (last_Call + DRAWING_TIME_INTERVAL < now){
+				last_Call = now;
+				
+				var p = getMousePos(e);
+				//alert(p);
+		
+				var ctx = canvas.getContext('2d');
+				ctx.beginPath();
+				ctx.strokeStyle = document.getElementById('color'+color).style.backgroundColor;
+				ctx.moveTo(last_Pos[0],last_Pos[1]);
+				ctx.lineTo(p[0],p[1]);
+				ctx.stroke();
+
+				var ctx2 = canvasOff.getContext('2d');
+				ctx2.beginPath();
+				ctx2.strokeStyle = document.getElementById('color'+color).style.backgroundColor;
+				ctx2.moveTo(last_Pos[0],last_Pos[1]);
+				ctx2.lineTo(p[0],p[1]);
+				ctx2.stroke();
+
+				last_Pos[0] = p[0];
+				last_Pos[1] = p[1];
+			}
+		}
+	}
+	function startDraw(e){
+		//e.preventDefault();
+		//e.stopPropagation();
+		last_Call = Date.now();
+		pen_downed = true; 
+		last_Pos = getMousePos(e);  
+	}
+
+	function endDraw(e){ 
+		//e.preventDefault();
+		//e.stopPropagation();
+		pen_downed = false;
+	}
+
+	function getDataName(){
+		question_Id = Number.parseInt(GetURLParameter("data"),10);
+		document.getElementById('data_name').innerHTML = DATA_NAME[question_Id];
+		//alert(document.getElementById('data_name').innerHTML);
+	}
+
+	function setCanvas(){
+		canvasOff.width = canvas.width = (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth) * 0.7;
+		img = new Image();   // Create new img element
+		img.addEventListener('load', function() {
+			canvasOff.height = canvas.height = canvas.width / img.width * img.height;
+
+//(window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight) * 0.5;
+	
+
+			var ctx = canvas.getContext('2d');
+			ctx.lineWidth = STROKEWIDTH;
+			ctx.lineCap ='round';
+			ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+			var ctxOff = canvasOff.getContext('2d');
+			ctxOff.lineWidth = STROKEWIDTH;
+			ctxOff.lineCap ='round';
+			
+			canvas.addEventListener("mousemove",drawMove);
+			document.addEventListener("touchmove",drawMove);
+			document.addEventListener("mousedown",startDraw);
+			document.addEventListener("touchstart",startDraw);
+			document.addEventListener("mouseup",endDraw);
+			document.addEventListener("touchend",endDraw);
+			
+		}, false);
+		img.src = 'img/' + DATA_NAME[question_Id]; // Set source path
+		
+	}
+
+	function GetURLParameter(sParam){
+		var sPageURL = window.location.search.substring(1);
+		var sURLVariables = sPageURL.split('&');
+		for (var i = 0; i < sURLVariables.length; i++) 
+		{
+			var sParameterName = sURLVariables[i].split('=');
+			if (sParameterName[0] == sParam){
+				return sParameterName[1];
+			}
+		}
+		return "0";
+	}
+	
+</script>
+</html>
